@@ -174,118 +174,105 @@ end
 -- [ HỆ THỐNG TRÁI ÁC QUỶ ]
 local FruitESPTable = {}
 
--- Logic lọc độ hiếm từ Script #2 (Dùng bảng để quản lý sạch hơn)
-local MythicalFruits = {"gravity", "mammoth", "shadow", "t-rex", "mochi", "venom", "gas", "control", "tiger", "kitsune", "dragon"}
-local LegendaryFruits = {"quake", "buddha", "love", "spider", "phoenix", "portal", "rumble", "pain", "blizzard"}
+local MythicalFruits = {
+    "gravity","mammoth","shadow","t-rex","mochi",
+    "venom","gas","control","tiger","kitsune","dragon"
+}
+
+local LegendaryFruits = {
+    "quake","buddha","love","spider",
+    "phoenix","portal","rumble","pain","blizzard"
+}
 
 local function getFruitColor(name)
     name = name:lower()
-    for _, v in pairs(MythicalFruits) do
-        if name:find(v) then return Color3.fromRGB(255, 0, 0) end
+
+    for _, v in ipairs(MythicalFruits) do
+        if name:find(v) then
+            return Color3.fromRGB(255,0,0)
+        end
     end
-    for _, v in pairs(LegendaryFruits) do
-        if name:find(v) then return Color3.fromRGB(255, 0, 255) end
+
+    for _, v in ipairs(LegendaryFruits) do
+        if name:find(v) then
+            return Color3.fromRGB(255,0,255)
+        end
     end
-    return Color3.new(1, 1, 1)
+
+    return Color3.new(1,1,1)
 end
 
--- Logic kiểm tra vật phẩm là Trái ác quỷ (Script #2)
 local function isFruit(obj)
-    return obj:IsA("Tool") and obj:FindFirstChild("Handle") and not obj:FindFirstChildOfClass("Humanoid")
+    return obj:IsA("Tool")
+        and obj:FindFirstChild("Handle")
+        and not obj:FindFirstChildOfClass("Humanoid")
 end
 
--- Logic tạo ESP khớp với UI của Script #1
 local function createFruitESP(obj)
-    if not isFruit(obj) or FruitESPTable[obj] then
+    if not _G.FruitESPEnabled then
         return
     end
 
-    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not isFruit(obj) then
+        return
+    end
 
-    if root and (root.Position - obj.Handle.Position).Magnitude > 3000 then
+    if FruitESPTable[obj] then
+        return
+    end
+
+    local handle = obj:FindFirstChild("Handle")
+    if not handle then
         return
     end
 
     local bill = Instance.new("BillboardGui")
-    bill.Name = "FruitESP_Label"
-    bill.Parent = game.CoreGui
-    bill.Size = UDim2.new(0, 200, 0, 50)
-    bill.Adornee = obj.Handle
+    bill.Name = "FruitESP"
+    bill.Adornee = handle
+    bill.Size = UDim2.new(0,200,0,50)
     bill.AlwaysOnTop = true
-    bill.MaxDistance = 2500
+    bill.MaxDistance = 1500
+    bill.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
     local txt = Instance.new("TextLabel")
     txt.Parent = bill
     txt.Size = UDim2.new(1,0,1,0)
     txt.BackgroundTransparency = 1
-    txt.TextStrokeTransparency = 0
     txt.TextScaled = true
     txt.Font = Enum.Font.GothamBold
+    txt.TextStrokeTransparency = 0
     txt.Text = obj.Name
     txt.TextColor3 = getFruitColor(obj.Name)
 
-    FruitESPTable[obj] = {
-        Bill = bill,
-        Text = txt
-    }
+    FruitESPTable[obj] = bill
 end
 
-for _, v in pairs(workspace:GetDescendants()) do
-    if _G.FruitESPEnabled then
-        createFruitESP(v)
+local function clearFruitESP()
+    for _, esp in pairs(FruitESPTable) do
+        if esp then
+            esp:Destroy()
+        end
     end
+
+    table.clear(FruitESPTable)
 end
 
 workspace.DescendantAdded:Connect(function(v)
-    task.wait(0.1)
-
     if _G.FruitESPEnabled then
-        createFruitESP(v)
-    end
-end)
--- xoa esp khi tat
-local function clearFruitESP()
-    for obj, data in pairs(FruitESPTable) do
-        if data.Bill then
-            data.Bill:Destroy()
+        task.wait(0.2)
+
+        if v:IsA("Tool") then
+            createFruitESP(v)
         end
     end
+end)
 
-    FruitESPTable = {}
-end
-
--- Logic dọn dẹp khi trái ác quỷ bị nhặt mất
 workspace.DescendantRemoving:Connect(function(v)
     if FruitESPTable[v] then
-        FruitESPTable[v].Bill:Destroy()
+        FruitESPTable[v]:Destroy()
         FruitESPTable[v] = nil
     end
 end)
-
-local function getNearestFruit()
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-
-    if not root then
-        return nil
-    end
-
-    local nearest = nil
-    local distance = math.huge
-
-    for _, v in pairs(workspace:GetDescendants()) do
-        if isFruit(v) and v:FindFirstChild("Handle") then
-            local dist = (root.Position - v.Handle.Position).Magnitude
-
-            if dist < distance then
-                distance = dist
-                nearest = v
-            end
-        end
-    end
-
-    return nearest
-end
 
 -- ============================================================
 --  5. HỆ THỐNG GIAO DIỆN (UI SYSTEM)
@@ -469,53 +456,50 @@ end
 --  7. VÒNG LẶP CHÍNH (MAIN LOOPS)
 -- ============================================================
 RunService.RenderStepped:Connect(function()
-    local char = LocalPlayer.Character ; local hum = char and char:FindFirstChild("Humanoid") ; local root = char and char:FindFirstChild("HumanoidRootPart")
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChild("Humanoid")
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+
     if hum and root then
-        hum.WalkSpeed = _G.SpeedEnabled and _G.SpeedValue or 50
+
+        hum.WalkSpeed = _G.SpeedEnabled and _G.SpeedValue or 16
+
         if _G.JumpEnabled then
             hum.UseJumpPower = true
             hum.JumpPower = _G.JumpPowerValue
         else
-            hum.JumpPower = 50 -- Giá trị mặc định của Roblox
+            hum.JumpPower = 50
         end
-        if _G.DashEnabled and hum.MoveDirection.Magnitude > 0 then root.CFrame = root.CFrame + hum.MoveDirection * _G.DashDist end
-        if _G.AutoTeleEnabled then
-            for _, p in pairs(Players:GetPlayers()) do
-                if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                    root.CFrame = p.Character.HumanoidRootPart.CFrame * CFrame.new(0,0,3) ; break
-                end
+
+        if _G.DashEnabled and hum.MoveDirection.Magnitude > 0 then
+            root.CFrame = root.CFrame + hum.MoveDirection * _G.DashDist
+        end
+
+        if _G.FruitTweenEnabled then
+            local fruit = getNearestFruit()
+
+            if fruit and fruit:FindFirstChild("Handle") then
+                local pos = fruit.Handle.Position + Vector3.new(0,3,0)
+
+                root.CFrame = root.CFrame:Lerp(
+                    CFrame.new(pos),
+                    _G.FruitTweenSpeed / 10000
+                )
             end
         end
-    end
-    if _G.HitboxEnabled then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local part = p.Character.HumanoidRootPart
-                if not _G.OriginalParts[part] then _G.OriginalParts[part] = {Size = part.Size, Transparency = part.Transparency, Color = part.Color, CanCollide = part.CanCollide} end
-                part.Size = Vector3.new(_G.HitboxSize, _G.HitboxSize, _G.HitboxSize) ; part.Transparency = 0.7 ; part.CanCollide = false
-            end
-        end
-    end
-    
-UserInputService.JumpRequest:Connect(function()
-    if _G.InfiniteJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-        LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
 
--- Fruit Tween
-if _G.FruitTweenEnabled then
-    local fruit = getNearestFruit()
+UserInputService.JumpRequest:Connect(function()
+    if _G.InfiniteJumpEnabled then
+        local hum = LocalPlayer.Character
+            and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
 
-    if fruit and fruit:FindFirstChild("Handle") then
-        local targetPos = fruit.Handle.Position + Vector3.new(0,3,0)
-
-        root.CFrame = root.CFrame:Lerp(
-            CFrame.new(targetPos),
-            _G.FruitTweenSpeed / 10000
-        )
+        if hum then
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
     end
-end
+end)
 
 -- ============================================================
 --  8. KHỞI TẠO TAB & TÍNH NĂNG (SETUP)
