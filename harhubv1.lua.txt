@@ -1,5 +1,3 @@
--- File: harhubv1.lua
-
 --[[
     # @title:       Scripts HAR Hub PRO (Bản Hoàn Thiện)
     # @author:      Hờ A Rầu
@@ -218,15 +216,29 @@ local function createFruitESP(obj)
     FruitESPTable[obj] = {Bill = bill, Text = txt}
 end
 
--- Logic quét và tự động cập nhật từ Script #2
 for _, v in pairs(workspace:GetDescendants()) do
-    createFruitESP(v)
+    if _G.FruitESPEnabled then
+        createFruitESP(v)
+    end
 end
 
 workspace.DescendantAdded:Connect(function(v)
-    task.wait(0.1) -- Đợi một chút để object load xong tên
-    createFruitESP(v)
+    task.wait(0.1)
+
+    if _G.FruitESPEnabled then
+        createFruitESP(v)
+    end
 end)
+-- xoa esp khi tat
+local function clearFruitESP()
+    for obj, data in pairs(FruitESPTable) do
+        if data.Bill then
+            data.Bill:Destroy()
+        end
+    end
+
+    FruitESPTable = {}
+end
 
 -- Logic dọn dẹp khi trái ác quỷ bị nhặt mất
 workspace.DescendantRemoving:Connect(function(v)
@@ -236,6 +248,30 @@ workspace.DescendantRemoving:Connect(function(v)
     end
 end)
 
+local function getNearestFruit()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+
+    if not root then
+        return nil
+    end
+
+    local nearest = nil
+    local distance = math.huge
+
+    for _, v in pairs(workspace:GetDescendants()) do
+        if isFruit(v) and v:FindFirstChild("Handle") then
+            local dist = (root.Position - v.Handle.Position).Magnitude
+
+            if dist < distance then
+                distance = dist
+                nearest = v
+            end
+        end
+    end
+
+    return nearest
+end
 
 -- ============================================================
 --  5. HỆ THỐNG GIAO DIỆN (UI SYSTEM)
@@ -460,6 +496,20 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
+-- Fruit Tween
+if _G.FruitTweenEnabled then
+    local fruit = getNearestFruit()
+
+    if fruit and fruit:FindFirstChild("Handle") then
+        local targetPos = fruit.Handle.Position + Vector3.new(0,3,0)
+
+        root.CFrame = root.CFrame:Lerp(
+            CFrame.new(targetPos),
+            _G.FruitTweenSpeed / 10000
+        )
+    end
+end
+
 -- ============================================================
 --  8. KHỞI TẠO TAB & TÍNH NĂNG (SETUP)
 -- ============================================================
@@ -484,9 +534,21 @@ createToggle(Tab_PvP, "ESP Người Chơi", function(s) _G.ESPEnabled = s if s t
 createToggle(Tab_PvP, "Tự Áp Sát (Auto Tele)", function(s) _G.AutoTeleEnabled = s end)
 
 createSection(Tab_PvP, "TRÁI ÁC QUỶ")
-createToggle(Tab_PvP, "Hiện Trái Ác Quỷ", function(s) _G.FruitESPEnabled = s end)
-createToggle(Tab_PvP, "Bay Tới Trái (Tween)", function(s) _G.FruitTweenEnabled = s end)
+createToggle(Tab_PvP, "Hiện Trái Ác Quỷ", function(s)
+    _G.FruitESPEnabled = s
 
+    if s then
+        for _, v in pairs(workspace:GetDescendants()) do
+            createFruitESP(v)
+        end
+    else
+        clearFruitESP()
+    end
+end)
+createSlider(Tab_PvP, "Tốc Độ Tween", 300, 600, 300, function(v)
+    _G.FruitTweenSpeed = v
+end)
+createToggle(Tab_PvP, "Bay Tới Trái (Tween)", function(s) _G.FruitTweenEnabled = s end)
 createSection(Tab_PvP, "HỆ THỐNG")
 createToggle(Tab_PvP, "Góc Nhìn Rộng (95 FOV)", function(s) camera.FieldOfView = s and 95 or 70 end)
 createToggle(Tab_PvP, "Vào Lại Server", function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
