@@ -196,24 +196,38 @@ end
 
 -- Logic tạo ESP khớp với UI của Script #1
 local function createFruitESP(obj)
-    if not isFruit(obj) or FruitESPTable[obj] then return end
+    if not isFruit(obj) or FruitESPTable[obj] then
+        return
+    end
 
-    local bill = Instance.new("BillboardGui", game.CoreGui)
+    local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+
+    if root and (root.Position - obj.Handle.Position).Magnitude > 3000 then
+        return
+    end
+
+    local bill = Instance.new("BillboardGui")
     bill.Name = "FruitESP_Label"
+    bill.Parent = game.CoreGui
     bill.Size = UDim2.new(0, 200, 0, 50)
     bill.Adornee = obj.Handle
     bill.AlwaysOnTop = true
+    bill.MaxDistance = 2500
 
-    local txt = Instance.new("TextLabel", bill)
-    txt.Size = UDim2.new(1, 0, 1, 0)
+    local txt = Instance.new("TextLabel")
+    txt.Parent = bill
+    txt.Size = UDim2.new(1,0,1,0)
     txt.BackgroundTransparency = 1
-    txt.TextStrokeTransparency = 0 -- Giúp chữ dễ đọc hơn (từ script #2)
+    txt.TextStrokeTransparency = 0
     txt.TextScaled = true
     txt.Font = Enum.Font.GothamBold
     txt.Text = obj.Name
     txt.TextColor3 = getFruitColor(obj.Name)
 
-    FruitESPTable[obj] = {Bill = bill, Text = txt}
+    FruitESPTable[obj] = {
+        Bill = bill,
+        Text = txt
+    }
 end
 
 for _, v in pairs(workspace:GetDescendants()) do
@@ -482,14 +496,7 @@ RunService.RenderStepped:Connect(function()
             end
         end
     end
-    -- Fruit ESP Loop
-    if _G.FruitESPEnabled then
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("Tool") and v:FindFirstChild("Handle") and not v:FindFirstChildOfClass("Humanoid") then createFruitESP(v) end
-        end
-    end
-end)
-
+    
 UserInputService.JumpRequest:Connect(function()
     if _G.InfiniteJumpEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
         LocalPlayer.Character.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
